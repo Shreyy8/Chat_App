@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 240 15% 9%;
+    --foreground: 240 10% 95%;
+
+    --card: 240 12% 12%;
+    --card-foreground: 240 10% 95%;
+
+    --popover: 240 15% 11%;
+    --popover-foreground: 240 10% 95%;
+
+    --primary: 270 80% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 15% 18%;
+    --secondary-foreground: 240 10% 95%;
+
+    --muted: 240 10% 20%;
+    --muted-foreground: 240 5% 60%;
+
+    --accent: 200 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 10% 18%;
+    --input: 240 10% 20%;
+    --ring: 270 80% 65%;
+
+    --radius: 0.75rem;
+
+    /* Chat specific colors */
+    --chat-bubble-sent: 270 80% 65%;
+    --chat-bubble-received: 240 15% 18%;
+    --online-status: 142 76% 36%;
+    --away-status: 45 93% 47%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(270 80% 65%) 0%, hsl(240 80% 70%) 50%, hsl(200 100% 60%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(200 100% 60%) 0%, hsl(270 80% 65%) 100%);
+    --gradient-background: linear-gradient(180deg, hsl(240 20% 8%) 0%, hsl(250 25% 12%) 50%, hsl(240 20% 10%) 100%);
+    
+    /* Glass effects */
+    --glass-background: hsla(240, 15%, 15%, 0.7);
+    --glass-border: hsla(240, 10%, 30%, 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background: var(--gradient-background);
+    background-attachment: fixed;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer utilities {
+  .glass-effect {
+    background: var(--glass-background);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+  
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 8s ease infinite;
+  }
+  
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+}
