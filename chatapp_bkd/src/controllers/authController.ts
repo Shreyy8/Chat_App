@@ -9,7 +9,12 @@ export const authController = {
       const { username, email, password, name }: AuthRequest = req.body;
 
       // Check if user already exists
-      const existingUser = await User.findByUsernameOrEmail(username);
+      const existingUser = await User.findOne({
+        $or: [
+          { username: username },
+          { email: email }
+        ]
+      });
       if (existingUser) {
         res.status(400).json({
           success: false,
@@ -41,7 +46,7 @@ export const authController = {
       });
 
       const response: AuthResponse = {
-        user: user.toPublicJSON(),
+        user: user.toJSON(),
         accessToken,
         refreshToken
       };
@@ -65,7 +70,12 @@ export const authController = {
       const { identifier, password }: { identifier: string; password: string } = req.body;
 
       // Find user by username or email
-      const user = await User.findByUsernameOrEmail(identifier);
+      const user = await User.findOne({
+        $or: [
+          { username: identifier },
+          { email: identifier }
+        ]
+      });
       if (!user) {
         res.status(401).json({
           success: false,
@@ -101,7 +111,7 @@ export const authController = {
       });
 
       const response: AuthResponse = {
-        user: user.toPublicJSON(),
+        user: user.toJSON(),
         accessToken,
         refreshToken
       };
@@ -156,7 +166,7 @@ export const authController = {
       });
 
       const response: AuthResponse = {
-        user: user.toPublicJSON(),
+        user: user.toJSON(),
         accessToken,
         refreshToken: newRefreshToken
       };
@@ -209,7 +219,7 @@ export const authController = {
 
       res.json({
         success: true,
-        data: req.user.toPublicJSON()
+        data: req.user.toJSON()
       });
     } catch (error) {
       console.error('Get me error:', error);

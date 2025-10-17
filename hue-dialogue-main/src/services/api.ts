@@ -229,6 +229,29 @@ class ApiService {
     return response.data;
   }
 
+  async deleteChat(id: string): Promise<void> {
+    await this.request(`/chats/${id}`, { method: 'DELETE' });
+  }
+
+  async addMembers(chatId: string, members: string[]): Promise<Chat> {
+    const response = await this.request<{ success: boolean; data: Chat }>(
+      `/chats/${chatId}/members`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ members }),
+      }
+    );
+    return response.data;
+  }
+
+  async removeMember(chatId: string, userId: string): Promise<Chat> {
+    const response = await this.request<{ success: boolean; data: Chat }>(
+      `/chats/${chatId}/members/${userId}`,
+      { method: 'DELETE' }
+    );
+    return response.data;
+  }
+
   // Message methods
   async getChatMessages(chatId: string, page: number = 1, limit: number = 50): Promise<{
     messages: Message[];

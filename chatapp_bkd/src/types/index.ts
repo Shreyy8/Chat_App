@@ -1,5 +1,6 @@
-import { Document } from 'mongoose';
+import { Document, Model } from 'mongoose';
 import { Socket } from 'socket.io';
+import { Request } from 'express';
 
 // User Types
 export interface IUser extends Document {
@@ -20,6 +21,17 @@ export interface IUser extends Document {
   lastSeen: Date;
   createdAt: Date;
   updatedAt: Date;
+
+  // Instance methods
+  comparePassword(candidatePassword: string): Promise<boolean>;
+  toPublicJSON?(): IUserPublic;
+}
+
+// User Model static methods
+export interface IUserModel extends Model<IUser> {
+  searchUsers(query: string, excludeIds?: string[]): Promise<IUser[]>;
+  getOnlineUsers(): Promise<IUser[]>;
+  findByUsernameOrEmail(identifier: string): Promise<IUser | null>;
 }
 
 export interface IUserPublic {
@@ -45,12 +57,26 @@ export interface IChat extends Document {
   type: 'dm' | 'group';
   avatar?: string;
   description?: string;
-  members: string[];
-  admins: string[];
+  members: any[];
+  admins: any[];
   customBackground?: string;
-  lastMessage?: string;
+  lastMessage?: any;
   createdAt: Date;
   updatedAt: Date;
+
+  // Instance methods
+  isMember(userId: string): boolean;
+  isAdmin(userId: string): boolean;
+  addMember(userId: string): boolean;
+  removeMember(userId: string): boolean;
+  promoteToAdmin(userId: string): boolean;
+  demoteFromAdmin(userId: string): boolean;
+}
+
+export interface IChatModel extends Model<IChat> {
+  findUserChats(userId: string): Promise<IChat[]>;
+  findOrCreateDM(userId1: string, userId2: string): Promise<IChat>;
+  createGroupChat(name: string, creatorId: string, memberIds: string[]): Promise<IChat>;
 }
 
 export interface IChatPublic {
@@ -71,19 +97,31 @@ export interface IChatPublic {
 // Message Types
 export interface IMessage extends Document {
   _id: string;
-  chatId: string;
-  senderId: string;
+  chatId: any;
+  senderId: any;
   content: string;
   type: 'text' | 'image' | 'document';
   mediaUrl?: string;
   edited: boolean;
   reactions: Array<{
-    userId: string;
+    userId: any;
     emoji: string;
   }>;
-  replyTo?: string;
+  replyTo?: any;
   createdAt: Date;
   updatedAt: Date;
+
+  // Instance methods
+  addReaction(userId: string, emoji: string): boolean;
+  removeReaction(userId: string, emoji?: string): boolean;
+  hasReacted(userId: string, emoji?: string): boolean;
+}
+
+export interface IMessageModel extends Model<IMessage> {
+  getChatMessages(chatId: string, page?: number, limit?: number): Promise<IMessage[]>;
+  getChatMessageCount(chatId: string): Promise<number>;
+  searchMessages(chatId: string, query: string, page?: number, limit?: number): Promise<IMessage[]>;
+  getRecentMessages(chatIds: string[], limit?: number): Promise<any[]>;
 }
 
 export interface IMessagePublic {
@@ -183,7 +221,7 @@ export interface JWTPayload {
 }
 
 // Express Request with User
-export interface AuthenticatedRequest extends Express.Request {
+export interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 

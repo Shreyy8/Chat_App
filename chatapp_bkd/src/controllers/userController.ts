@@ -122,7 +122,7 @@ export const userController = {
       res.json({
         success: true,
         message: 'Profile updated successfully',
-        data: user.toPublicJSON()
+  data: user.toPublicJSON ? user.toPublicJSON() : user
       });
     } catch (error) {
       console.error('Update user error:', error);
@@ -254,7 +254,7 @@ export const userController = {
 
       const users = await User.searchUsers(
         String(q),
-        [req.user?._id.toString()]
+  req.user && req.user._id ? [req.user._id.toString()] : []
       );
 
       res.json({

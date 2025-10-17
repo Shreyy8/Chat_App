@@ -7,6 +7,10 @@ import { Message } from '../models/Message';
 import { SocketEvents, AuthenticatedSocket } from '../types';
 import { config } from '../config';
 
+// Singleton handle for controllers to emit events without importing server.ts
+let socketServiceInstance: SocketService | null = null;
+export const getSocketService = () => socketServiceInstance;
+
 export class SocketService {
   private io: SocketIOServer;
   private connectedUsers: Map<string, string> = new Map(); // userId -> socketId
@@ -24,6 +28,9 @@ export class SocketService {
 
     this.setupMiddleware();
     this.setupEventHandlers();
+
+    // Register singleton instance
+    socketServiceInstance = this;
   }
 
   private setupMiddleware(): void {
@@ -52,56 +59,57 @@ export class SocketService {
   }
 
   private setupEventHandlers(): void {
-    this.io.on('connection', (socket: AuthenticatedSocket) => {
-      const user = socket.user;
-      console.log(`User ${user.name} connected with socket ${socket.id}`);
+    this.io.on('connection', (socket) => {
+      const authenticatedSocket = socket as AuthenticatedSocket;
+      const user = authenticatedSocket.user;
+      console.log(`User ${user.name} connected with socket ${authenticatedSocket.id}`);
 
       // Track user connection
-      this.connectedUsers.set(socket.id, user._id.toString());
+      this.connectedUsers.set(authenticatedSocket.id, user._id.toString());
       if (!this.userSockets.has(user._id.toString())) {
         this.userSockets.set(user._id.toString(), new Set());
       }
-      this.userSockets.get(user._id.toString())!.add(socket.id);
+      this.userSockets.get(user._id.toString())!.add(authenticatedSocket.id);
 
       // Update user status to online
       this.updateUserStatus(user._id.toString(), 'online');
 
       // Join user to their chat rooms
-      this.joinUserChats(socket, user._id.toString());
+      this.joinUserChats(authenticatedSocket, user._id.toString());
 
       // Handle join chat
-      socket.on('join_chat', async (chatId: string) => {
-        await this.handleJoinChat(socket, chatId);
+      authenticatedSocket.on('join_chat', async (chatId: string) => {
+        await this.handleJoinChat(authenticatedSocket, chatId);
       });
 
       // Handle leave chat
-      socket.on('leave_chat', (chatId: string) => {
-        this.handleLeaveChat(socket, chatId);
+      authenticatedSocket.on('leave_chat', (chatId: string) => {
+        this.handleLeaveChat(authenticatedSocket, chatId);
       });
 
       // Handle send message
-      socket.on('send_message', async (data) => {
-        await this.handleSendMessage(socket, data);
+      authenticatedSocket.on('send_message', async (data) => {
+        await this.handleSendMessage(authenticatedSocket, data);
       });
 
       // Handle typing start
-      socket.on('typing_start', (chatId: string) => {
-        this.handleTypingStart(socket, chatId);
+      authenticatedSocket.on('typing_start', (chatId: string) => {
+        this.handleTypingStart(authenticatedSocket, chatId);
       });
 
       // Handle typing stop
-      socket.on('typing_stop', (chatId: string) => {
-        this.handleTypingStop(socket, chatId);
+      authenticatedSocket.on('typing_stop', (chatId: string) => {
+        this.handleTypingStop(authenticatedSocket, chatId);
       });
 
       // Handle user status change
-      socket.on('user_status_change', async (status: 'online' | 'away' | 'offline') => {
-        await this.handleUserStatusChange(socket, status);
+      authenticatedSocket.on('user_status_change', async (status: 'online' | 'away' | 'offline') => {
+        await this.handleUserStatusChange(authenticatedSocket, status);
       });
 
       // Handle disconnect
-      socket.on('disconnect', () => {
-        this.handleDisconnect(socket);
+      authenticatedSocket.on('disconnect', () => {
+        this.handleDisconnect(authenticatedSocket);
       });
     });
   }
@@ -127,7 +135,7 @@ export class SocketService {
         return;
       }
 
-      if (!chat.isMember(user._id.toString())) {
+      if (!(chat as any).isMember(user._id.toString())) {
         socket.emit('error', { message: 'You are not a member of this chat' });
         return;
       }
@@ -172,7 +180,7 @@ export class SocketService {
 
       // Validate chat membership
       const chat = await Chat.findById(chatId);
-      if (!chat || !chat.isMember(user._id.toString())) {
+      if (!chat || !(chat as any).isMember(user._id.toString())) {
         socket.emit('error', { message: 'You are not a member of this chat' });
         return;
       }

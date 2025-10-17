@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IChat } from '../types';
+import { IChat, IChatModel } from '../types';
 
 const chatSchema = new Schema<IChat>({
   name: {
@@ -46,8 +46,8 @@ const chatSchema = new Schema<IChat>({
   timestamps: true,
   toJSON: {
     transform: function(doc, ret) {
-      delete ret.__v;
-      return ret;
+      const { __v, ...chatWithoutVersion } = ret;
+      return chatWithoutVersion;
     }
   }
 });
@@ -183,4 +183,4 @@ chatSchema.statics.createGroupChat = async function(name: string, creatorId: str
   return groupChat;
 };
 
-export const Chat = mongoose.model<IChat>('Chat', chatSchema);
+export const Chat = mongoose.model<IChat, IChatModel>('Chat', chatSchema);

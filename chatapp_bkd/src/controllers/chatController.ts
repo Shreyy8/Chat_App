@@ -3,6 +3,7 @@ import { Chat } from '../models/Chat';
 import { User } from '../models/User';
 import { AuthenticatedRequest } from '../types';
 import { CreateChatRequest } from '../types';
+import { getSocketService } from '../services/socketService';
 
 export const chatController = {
   // Get user's chats
@@ -132,7 +133,7 @@ export const chatController = {
       }
 
       // Check if user is a member
-      if (!chat.isMember(userId)) {
+      if (!userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -170,7 +171,7 @@ export const chatController = {
       }
 
       // Check if user is a member
-      if (!chat.isMember(userId)) {
+      if (!userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -179,7 +180,7 @@ export const chatController = {
       }
 
       // For group chats, only admins can update
-      if (chat.type === 'group' && !chat.isAdmin(userId)) {
+      if (chat.type === 'group' && (!userId || !chat.isAdmin(userId))) {
         res.status(403).json({
           success: false,
           message: 'Only admins can update group chat details'
@@ -195,6 +196,10 @@ export const chatController = {
       await chat.save();
       await chat.populate('members', 'name username avatar status');
       await chat.populate('admins', 'name username avatar');
+
+      // Emit realtime chat update
+      const socketService = getSocketService();
+      socketService?.emitToChat(chat._id.toString(), 'chat_updated', chat);
 
       res.json({
         success: true,
@@ -226,7 +231,7 @@ export const chatController = {
       }
 
       // Check if user is a member
-      if (!chat.isMember(userId)) {
+      if (!userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -235,7 +240,7 @@ export const chatController = {
       }
 
       // For group chats, only admins can delete
-      if (chat.type === 'group' && !chat.isAdmin(userId)) {
+      if (chat.type === 'group' && (!userId || !chat.isAdmin(userId))) {
         res.status(403).json({
           success: false,
           message: 'Only admins can delete group chats'
@@ -243,7 +248,11 @@ export const chatController = {
         return;
       }
 
-      await Chat.findByIdAndDelete(chatId);
+  await Chat.findByIdAndDelete(chatId);
+
+  // Optionally notify members (frontend currently removes via API response)
+  const socketService = getSocketService();
+  socketService?.emitToChat(chatId, 'chat_updated', { _id: chatId, deleted: true });
 
       res.json({
         success: true,
@@ -283,7 +292,7 @@ export const chatController = {
       }
 
       // Check if user is a member
-      if (!chat.isMember(userId)) {
+      if (!userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -292,7 +301,7 @@ export const chatController = {
       }
 
       // For group chats, only admins can add members
-      if (chat.type === 'group' && !chat.isAdmin(userId)) {
+      if (chat.type === 'group' && (!userId || !chat.isAdmin(userId))) {
         res.status(403).json({
           success: false,
           message: 'Only admins can add members to group chats'
@@ -320,6 +329,13 @@ export const chatController = {
 
       await chat.save();
       await chat.populate('members', 'name username avatar status');
+
+      const socketService = getSocketService();
+      // Notify room about new members and updated chat
+      members.forEach((memberId: string) => {
+        socketService?.emitToUser(memberId, 'user_joined_chat', { userId: memberId, chatId });
+      });
+      socketService?.emitToChat(chatId, 'chat_updated', chat);
 
       res.json({
         success: true,
@@ -351,7 +367,7 @@ export const chatController = {
       }
 
       // Check if current user is a member
-      if (!chat.isMember(currentUserId)) {
+      if (!currentUserId || !chat.isMember(currentUserId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -361,7 +377,7 @@ export const chatController = {
 
       // Users can remove themselves, or admins can remove others
       const canRemove = currentUserId === memberId || 
-        (chat.type === 'group' && chat.isAdmin(currentUserId));
+        (chat.type === 'group' && currentUserId && chat.isAdmin(currentUserId));
 
       if (!canRemove) {
         res.status(403).json({
@@ -372,7 +388,7 @@ export const chatController = {
       }
 
       // Cannot remove the last admin
-      if (chat.type === 'group' && chat.isAdmin(memberId) && chat.admins.length === 1) {
+  if (chat.type === 'group' && memberId && chat.isAdmin(memberId) && chat.admins.length === 1) {
         res.status(400).json({
           success: false,
           message: 'Cannot remove the last admin from the group'
@@ -380,7 +396,7 @@ export const chatController = {
         return;
       }
 
-      const removed = chat.removeMember(memberId);
+  const removed = memberId ? chat.removeMember(memberId) : false;
       if (!removed) {
         res.status(400).json({
           success: false,
@@ -391,6 +407,10 @@ export const chatController = {
 
       await chat.save();
       await chat.populate('members', 'name username avatar status');
+
+      const socketService = getSocketService();
+      socketService?.emitToChat(chatId, 'user_left_chat', { userId: memberId, chatId });
+      socketService?.emitToChat(chatId, 'chat_updated', chat);
 
       res.json({
         success: true,
@@ -422,7 +442,7 @@ export const chatController = {
       }
 
       // Check if current user is admin
-      if (!chat.isAdmin(currentUserId)) {
+      if (!currentUserId || !chat.isAdmin(currentUserId)) {
         res.status(403).json({
           success: false,
           message: 'Only admins can promote members'
@@ -431,7 +451,7 @@ export const chatController = {
       }
 
       // Check if target user is a member
-      if (!chat.isMember(memberId)) {
+      if (!memberId || !chat.isMember(memberId)) {
         res.status(400).json({
           success: false,
           message: 'User is not a member of this chat'
@@ -439,7 +459,7 @@ export const chatController = {
         return;
       }
 
-      const promoted = chat.promoteToAdmin(memberId);
+  const promoted = memberId ? chat.promoteToAdmin(memberId) : false;
       if (!promoted) {
         res.status(400).json({
           success: false,
@@ -451,6 +471,9 @@ export const chatController = {
       await chat.save();
       await chat.populate('members', 'name username avatar status');
       await chat.populate('admins', 'name username avatar');
+
+      const socketService = getSocketService();
+      socketService?.emitToChat(chatId, 'chat_updated', chat);
 
       res.json({
         success: true,
@@ -482,7 +505,7 @@ export const chatController = {
       }
 
       // Check if current user is admin
-      if (!chat.isAdmin(currentUserId)) {
+      if (!currentUserId || !chat.isAdmin(currentUserId)) {
         res.status(403).json({
           success: false,
           message: 'Only admins can demote other admins'
@@ -508,7 +531,7 @@ export const chatController = {
         return;
       }
 
-      const demoted = chat.demoteFromAdmin(memberId);
+  const demoted = memberId ? chat.demoteFromAdmin(memberId) : false;
       if (!demoted) {
         res.status(400).json({
           success: false,
@@ -520,6 +543,9 @@ export const chatController = {
       await chat.save();
       await chat.populate('members', 'name username avatar status');
       await chat.populate('admins', 'name username avatar');
+
+      const socketService = getSocketService();
+      socketService?.emitToChat(chatId, 'chat_updated', chat);
 
       res.json({
         success: true,
@@ -535,3 +561,8 @@ export const chatController = {
     }
   }
 };
+
+const API_BASE_URL = 'http://localhost:5000/api';
+
+console.log(`Server running on port 5000`);
+console.log(`API URL: ${API_BASE_URL}`);

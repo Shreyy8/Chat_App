@@ -7,7 +7,7 @@ export const generateAccessToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): s
     expiresIn: config.JWT_EXPIRES_IN,
     issuer: 'chatapp-api',
     audience: 'chatapp-client'
-  });
+  } as jwt.SignOptions);
 };
 
 export const generateRefreshToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string => {
@@ -15,7 +15,7 @@ export const generateRefreshToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): 
     expiresIn: config.JWT_REFRESH_EXPIRES_IN,
     issuer: 'chatapp-api',
     audience: 'chatapp-client'
-  });
+  } as jwt.SignOptions);
 };
 
 export const verifyAccessToken = (token: string): JWTPayload => {

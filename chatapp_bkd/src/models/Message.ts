@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IMessage } from '../types';
+import { IMessage, IMessageModel } from '../types';
 
 const reactionSchema = new Schema({
   userId: {
@@ -57,8 +57,8 @@ const messageSchema = new Schema<IMessage>({
   timestamps: true,
   toJSON: {
     transform: function(doc, ret) {
-      delete ret.__v;
-      return ret;
+      const { __v, ...messageWithoutVersion } = ret;
+      return messageWithoutVersion;
     }
   }
 });
@@ -239,4 +239,4 @@ messageSchema.pre('deleteOne', { document: true, query: false }, async function(
   }
 });
 
-export const Message = mongoose.model<IMessage>('Message', messageSchema);
+export const Message = mongoose.model<IMessage, IMessageModel>('Message', messageSchema);

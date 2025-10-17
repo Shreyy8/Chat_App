@@ -4,6 +4,7 @@ import { Chat } from '../models/Chat';
 import { User } from '../models/User';
 import { AuthenticatedRequest } from '../types';
 import { SendMessageRequest } from '../types';
+import { getSocketService } from '../services/socketService';
 
 export const messageController = {
   // Get chat messages
@@ -23,7 +24,7 @@ export const messageController = {
         return;
       }
 
-      if (!chat.isMember(userId)) {
+      if (!userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -37,7 +38,7 @@ export const messageController = {
         Number(limit)
       );
 
-      const total = await Message.getChatMessageCount(chatId);
+  const total = await Message.getChatMessageCount(chatId);
 
       res.json({
         success: true,
@@ -79,7 +80,7 @@ export const messageController = {
         return;
       }
 
-      if (!chat.isMember(userId)) {
+      if (!userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -113,6 +114,24 @@ export const messageController = {
       await message.populate('senderId', 'name username avatar');
       await message.populate('replyTo', 'content senderId');
       await message.populate('replyTo.senderId', 'name username avatar');
+
+      // Emit realtime event
+      const socketService = getSocketService();
+      socketService?.emitToChat(chatId, 'message_received', {
+        _id: message._id,
+        chatId: message.chatId,
+        senderId: message.senderId,
+        senderName: (message.senderId as any).name,
+        senderAvatar: (message.senderId as any).avatar,
+        content: message.content,
+        type: message.type,
+        mediaUrl: message.mediaUrl,
+        edited: message.edited,
+        reactions: message.reactions,
+        replyTo: message.replyTo,
+        createdAt: message.createdAt,
+        updatedAt: message.updatedAt
+      });
 
       res.status(201).json({
         success: true,
@@ -162,6 +181,10 @@ export const messageController = {
       await message.populate('replyTo', 'content senderId');
       await message.populate('replyTo.senderId', 'name username avatar');
 
+  // Emit realtime update
+  const socketService = getSocketService();
+  socketService?.emitToChat(message.chatId.toString(), 'message_updated', message);
+
       res.json({
         success: true,
         message: 'Message updated successfully',
@@ -194,7 +217,7 @@ export const messageController = {
       // Check if user is the sender or an admin of the chat
       const chat = await Chat.findById(message.chatId);
       const isSender = message.senderId.toString() === userId;
-      const isAdmin = chat && chat.isAdmin(userId);
+  const isAdmin = chat && userId && chat.isAdmin(userId);
 
       if (!isSender && !isAdmin) {
         res.status(403).json({
@@ -205,6 +228,12 @@ export const messageController = {
       }
 
       await Message.findByIdAndDelete(messageId);
+
+      // Emit realtime deletion
+      const socketService = getSocketService();
+      if (chat) {
+        socketService?.emitToChat(chat._id.toString(), 'message_deleted', messageId);
+      }
 
       res.json({
         success: true,
@@ -245,7 +274,7 @@ export const messageController = {
 
       // Check if user is a member of the chat
       const chat = await Chat.findById(message.chatId);
-      if (!chat || !chat.isMember(userId)) {
+      if (!chat || !userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -254,13 +283,16 @@ export const messageController = {
       }
 
       // Add reaction
-      message.addReaction(userId, emoji);
+  if (userId) message.addReaction(userId, emoji);
       await message.save();
 
       await message.populate('senderId', 'name username avatar');
       await message.populate('replyTo', 'content senderId');
       await message.populate('replyTo.senderId', 'name username avatar');
 
+  // Emit realtime update
+  const socketService = getSocketService();
+  socketService?.emitToChat(message.chatId.toString(), 'message_updated', message);
       res.json({
         success: true,
         message: 'Reaction added successfully',
@@ -293,7 +325,7 @@ export const messageController = {
 
       // Check if user is a member of the chat
       const chat = await Chat.findById(message.chatId);
-      if (!chat || !chat.isMember(userId)) {
+      if (!chat || !userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'
@@ -302,13 +334,16 @@ export const messageController = {
       }
 
       // Remove reaction
-      message.removeReaction(userId, emoji);
+  if (userId) message.removeReaction(userId, emoji);
       await message.save();
 
       await message.populate('senderId', 'name username avatar');
       await message.populate('replyTo', 'content senderId');
       await message.populate('replyTo.senderId', 'name username avatar');
 
+  // Emit realtime update
+  const socketService = getSocketService();
+  socketService?.emitToChat(message.chatId.toString(), 'message_updated', message);
       res.json({
         success: true,
         message: 'Reaction removed successfully',
@@ -348,7 +383,7 @@ export const messageController = {
         return;
       }
 
-      if (!chat.isMember(userId)) {
+      if (!userId || !chat.isMember(userId)) {
         res.status(403).json({
           success: false,
           message: 'You are not a member of this chat'

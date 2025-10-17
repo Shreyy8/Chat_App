@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { IUser } from '../types';
+import { IUser, IUserModel } from '../types';
 
 const socialLinkSchema = new Schema({
   platform: {
@@ -81,9 +81,8 @@ const userSchema = new Schema<IUser>({
   timestamps: true,
   toJSON: {
     transform: function(doc, ret) {
-      delete ret.password;
-      delete ret.__v;
-      return ret;
+      const { password, __v, ...userWithoutSensitiveData } = ret;
+      return userWithoutSensitiveData;
     }
   }
 });
@@ -155,4 +154,21 @@ userSchema.statics.searchUsers = function(query: string, excludeIds: string[] = 
   }).select('-password -__v').limit(20);
 };
 
-export const User = mongoose.model<IUser>('User', userSchema);
+// Static method to find user by username or email
+userSchema.statics.findByUsernameOrEmail = function(identifier: string) {
+  return this.findOne({
+    $or: [
+      { username: identifier },
+      { email: identifier }
+    ]
+  });
+};
+
+// Instance method to convert to public JSON
+userSchema.methods.toPublicJSON = function() {
+  const userObject = this.toObject();
+  const { password, __v, ...publicUser } = userObject;
+  return publicUser;
+};
+
+export const User = mongoose.model<IUser, IUserModel>('User', userSchema);
